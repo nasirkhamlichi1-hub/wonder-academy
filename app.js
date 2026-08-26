@@ -410,7 +410,9 @@ function renderQuiz(s, c) {
       q.why ? el('span', { class: 'why' }, q.why) : null
     );
     nextBtn.classList.remove('hidden');
-    nextBtn.focus();
+    // Delay the focus: focusing during the Enter keydown lets the same
+    // keypress activate the button, skipping the explanation entirely.
+    setTimeout(() => nextBtn.focus(), 450);
   }
 
   function advance() {
@@ -428,7 +430,11 @@ function renderQuiz(s, c) {
   } else {
     input = el('input', { type: 'text', id: 'ans', autocomplete: 'off', placeholder: 'Your answer' });
     submit = el('button', { onclick: () => judge(input.value) }, 'Check');
-    input.addEventListener('keydown', e => { if (e.key === 'Enter') judge(input.value); });
+    input.addEventListener('keydown', e => {
+      if (e.key !== 'Enter') return;
+      e.preventDefault();          // never let Enter reach the Next button
+      judge(input.value);
+    });
     optWrap = el('div', { class: 'answer-row' }, input, submit);
   }
 
