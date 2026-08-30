@@ -1,0 +1,35 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build_and_deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm }
+
+      - name: Build the frontend
+        run: |
+          npm ci
+          npm run build
+
+      - name: Check the SQL before it reaches a child
+        run: |
+          python3 -m pip install --quiet sqlglot
+          node scripts/sqllint.mjs
+
+      - name: Deploy site and API
+        uses: Azure/static-web-apps-deploy@v1
+        with:
+          azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN }}
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          action: upload
+          app_location: "site"
+          api_location: "api"
+          output_location: ""
+          skip_app_build: true
