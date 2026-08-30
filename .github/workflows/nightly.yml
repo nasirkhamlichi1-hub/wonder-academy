@@ -1,0 +1,18 @@
+# Static Web Apps' managed Functions cannot have timer triggers, so the nightly
+# rollup and the new-item governor are poked over HTTP instead.
+name: Nightly rollup
+
+on:
+  schedule:
+    - cron: "0 22 * * *"   # 02:00 Asia/Dubai
+  workflow_dispatch:
+
+jobs:
+  rollup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Run the rollup
+        run: |
+          curl -fsS -X POST "https://${{ vars.SWA_HOSTNAME }}/api/rollup" \
+            -H "x-rollup-secret: ${{ secrets.ROLLUP_SECRET }}" \
+            --retry 5 --retry-all-errors --max-time 180
