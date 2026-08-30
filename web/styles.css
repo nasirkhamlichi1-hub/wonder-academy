@@ -1,0 +1,301 @@
+/* The Wonder Academy — built on BBC GEL's published foundations.
+   Type scale, spacing scale, breakpoints, grid minimum and focus rule are BBC's
+   own values from @bbc/gel-foundations and @bbc/psammead-styles. BBC Reith is
+   exclusive to the BBC and cannot be licensed, so Inter and Hanken Grotesk stand
+   in — both have the large x-height and open apertures Reith relies on. */
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&family=Hanken+Grotesk:wght@400;500;700&display=swap');
+
+:root {
+  /* GEL spacing — nine steps, no more */
+  --space-hlf: 0.25rem; --space-1: 0.5rem;  --space-1-5: 0.75rem;
+  --space-2: 1rem;      --space-3: 1.5rem;  --space-4: 2rem;
+  --space-5: 2.5rem;    --space-6: 3rem;    --space-7: 3.5rem;
+
+  /* GEL breakpoints */
+  --bp-1: 15rem; --bp-2: 25rem; --bp-3: 37.5rem; --bp-4: 63rem; --bp-5: 80rem;
+
+  --page-margin: var(--space-1);
+  --gutter: var(--space-1);
+
+  /* BBC greys — verified hexes */
+  --ebon: #222222; --storm: #404040; --metal: #6e6e73;
+  --cloud-dark: #757575; --cloud-light: #bababa;
+  --stone: #d5d0cd; --chalk: #eceae7; --lunar: #f2f2f2;
+  --grey-2: #f6f6f6; --ghost: #fdfdfd; --white: #ffffff;
+  --postbox: #b80000; --midnight: #121212;
+
+  /* Brand. Orange for the master brand; warm for the youngest, calm purple for
+     exam years — the BBC's own deliberate stress-reduction decision. */
+  --brand: #e8710a;
+  --brand-dark: #c25a00;
+  --berry: #c4187e;
+  --tier-ks1: linear-gradient(135deg, #e8710a 0%, #c4187e 100%);
+  --tier-ks3: #6e22b4;
+  --tier-gcse: #1b62c4;
+
+  --subj-maths: #1b62c4;    --subj-english: #b01b7a;  --subj-science: #0b7a4b;
+  --subj-geography: #0e7c8c; --subj-history: #a03a0b;  --subj-computing: #454b54;
+  --subj-business: #7a5a0b;  --subj-dt: #5a3fb0;       --subj-discover: #c4187e;
+
+  --ok: #0b7a4b; --warn: #a86b00; --risk: #b80000;
+
+  --font-sans: 'Inter', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  --font-young: 'Hanken Grotesk', 'Inter', Helvetica, Arial, sans-serif;
+
+  --radius: 12px;
+  --radius-sm: 8px;
+
+  color-scheme: light;
+}
+
+@media (min-width: 25rem)   { :root { --page-margin: var(--space-2); } }
+@media (min-width: 37.5rem) { :root { --gutter: var(--space-2); } }
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html { font-size: 100%; }            /* GEL is explicit: respect the browser setting */
+
+body {
+  margin: 0;
+  font: 400 0.9375rem/1.25rem var(--font-sans);
+  color: var(--ebon);
+  background: var(--white);
+  -webkit-font-smoothing: antialiased;
+}
+@media (min-width: 20rem)   { body { font-size: 1rem; line-height: 1.375rem; } }
+
+h1, h2, h3, h4 { margin: 0 0 var(--space-2); font-weight: 700; line-height: 1.15; }
+h1 { font-size: 1.75rem; }
+h2 { font-size: 1.25rem; }
+h3 { font-size: 1.25rem; }
+h4 { font-size: 1.125rem; }
+@media (min-width: 37.5rem) {
+  h1 { font-size: 2.75rem; line-height: 3rem; }
+  h2 { font-size: 2rem;    line-height: 2.25rem; }
+  h3 { font-size: 1.5rem;  line-height: 1.75rem; }
+  h4 { font-size: 1.25rem; line-height: 1.5rem; }
+}
+p { margin: 0 0 var(--space-2); max-width: 42rem; }
+
+/* GEL's focus rule: the outline inherits the text colour, which already contrasts
+   with its background, so contrast is guaranteed without picking a focus colour. */
+:focus { outline: 2px solid; outline-offset: 2px; }
+:focus:not(:focus-visible) { outline: none; }
+
+.sr { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+      overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+
+/* ─────────────────────────── shell ─────────────────────────── */
+
+.shell { max-width: 80rem; margin: 0 auto; padding: 0 var(--page-margin); }
+.prose { max-width: 44rem; }
+
+.topbar {
+  display: flex; align-items: center; gap: var(--space-2);
+  padding: var(--space-1-5) var(--page-margin);
+  border-bottom: 1px solid var(--chalk);
+  background: var(--white);
+  position: sticky; top: 0; z-index: 20;
+}
+.topbar__brand { font-weight: 700; letter-spacing: -0.01em; }
+.topbar__brand span { color: var(--brand-dark); }
+.topbar__spacer { margin-left: auto; }
+
+.breadcrumb {
+  font-size: 0.8125rem; color: var(--cloud-dark);
+  padding: var(--space-2) 0 0;
+}
+.breadcrumb a { color: var(--cloud-dark); }
+
+/* ─────────────────────────── buttons ─────────────────────────── */
+
+.btn {
+  font: 700 1rem/1.25 var(--font-sans);
+  min-height: 48px;
+  padding: var(--space-1-5) var(--space-3);
+  border: 2px solid transparent;      /* required for Windows High Contrast */
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center; gap: var(--space-1);
+  background: var(--lunar); color: var(--ebon);
+}
+.btn--primary { background: var(--brand); color: #fff; }
+.btn--primary:hover { background: var(--brand-dark); }
+.btn--ghost { background: transparent; border-color: var(--ebon); }
+.btn--big { min-height: 64px; font-size: 1.125rem; padding: var(--space-2) var(--space-4); }
+.btn[disabled] { opacity: 0.5; cursor: not-allowed; }
+
+.cta { color: var(--brand-dark); text-decoration: none; font-weight: 700; }
+.cta:hover, .cta:focus { text-decoration: underline; }
+
+/* ─────────────────────────── cards ─────────────────────────── */
+
+.card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(266px, 1fr));   /* GEL minimum */
+  gap: var(--space-2);
+}
+
+.card {
+  position: relative;
+  display: flex; flex-direction: column;
+  min-width: 0;
+  background: var(--white);
+  border: 2px solid var(--chalk);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+.card__accent { height: 6px; background: var(--brand); }
+.card__body { padding: var(--space-2); }
+.card__meta { margin-top: auto; color: var(--cloud-dark); font-size: 0.8125rem; }
+/* Whole card clickable, exactly one tab stop */
+.card__title a::after { content: ''; position: absolute; inset: 0; }
+.card a:not(.card__title a) { position: relative; }
+
+/* ─────────────────────── key points panel ─────────────────────── */
+/* Summary first. A child who reads only this has still learned the thing. */
+
+.panel {
+  background: var(--lunar);
+  border-left: 6px solid var(--accent, var(--brand));
+  border-radius: var(--radius);
+  padding: var(--space-3);
+  margin: var(--space-3) 0;
+}
+.panel__title {
+  font: 700 1.125rem/1.375 var(--font-sans);
+  margin: 0 0 var(--space-1);
+  display: flex; align-items: center; gap: var(--space-1);
+}
+.panel ul { margin: 0; padding-left: 1.25rem; }
+.panel li { margin-bottom: var(--space-1); }
+.panel--tip { background: #fff6e8; border-left-color: var(--warn); }
+.panel--vocab { background: #f0f6ff; border-left-color: var(--subj-maths); }
+
+/* ─────────────────────── reveal answer ─────────────────────── */
+
+.reveal { border: 2px solid var(--chalk); border-radius: var(--radius); margin: var(--space-3) 0; }
+.reveal__q { padding: var(--space-2); font-weight: 500; }
+.reveal__q strong { display: block; font-size: 0.8125rem; text-transform: uppercase;
+                    letter-spacing: 0.04em; color: var(--cloud-dark); margin-bottom: var(--space-hlf); }
+.reveal__heading { margin: 0; }
+.reveal__btn {
+  display: flex; justify-content: space-between; align-items: center;
+  width: 100%; min-height: 48px; padding: var(--space-1-5) var(--space-2);
+  background: var(--lunar); border: 0; border-top: 2px solid var(--chalk);
+  font: 700 1rem/1.25 var(--font-sans); color: var(--ebon); cursor: pointer;
+}
+.reveal__icon { transition: transform 0.2s; flex-shrink: 0; }
+.reveal__btn[aria-expanded='true'] .reveal__icon { transform: rotate(180deg); }
+.reveal__drawer { padding: var(--space-2); border-top: 2px solid var(--chalk); }
+
+.icon { height: 1em; width: 1em; fill: currentColor; }
+
+/* ─────────────────────── the lesson stage ─────────────────────── */
+
+.stage {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-3);
+  padding: var(--space-3) 0 var(--space-7);
+}
+@media (min-width: 63rem) {
+  .stage { grid-template-columns: minmax(0, 1fr) 20rem; align-items: start; }
+}
+
+.teacher {
+  border: 2px solid var(--chalk); border-radius: var(--radius);
+  padding: var(--space-3); text-align: center;
+  position: sticky; top: 5rem;
+}
+.orb {
+  width: 96px; height: 96px; margin: 0 auto var(--space-2);
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #ffd7a8, var(--brand) 55%, var(--brand-dark));
+  transition: transform 0.18s ease, box-shadow 0.18s ease;
+}
+.orb--speaking { animation: breathe 1.6s ease-in-out infinite; box-shadow: 0 0 0 10px rgba(232,113,10,0.12); }
+.orb--listening { box-shadow: 0 0 0 10px rgba(27,98,196,0.14); }
+@keyframes breathe { 0%,100% { transform: scale(1); } 50% { transform: scale(1.06); } }
+
+.teacher__state { font-size: 0.8125rem; color: var(--cloud-dark); min-height: 1.25rem; }
+.teacher__name { font-weight: 700; margin-bottom: var(--space-hlf); }
+
+/* Redundancy principle: identical narration on screen as text makes learning
+   worse. We show the current TERM, never a running transcript of the teacher. */
+.term-card {
+  margin-top: var(--space-2); padding: var(--space-2);
+  background: var(--lunar); border-radius: var(--radius-sm); text-align: left;
+}
+.term-card__word { font-weight: 700; font-size: 1.25rem; }
+
+.phases { display: flex; flex-wrap: wrap; gap: var(--space-hlf); margin: var(--space-2) 0; }
+.phase-pip {
+  flex: 1 1 auto; min-width: 2rem; height: 8px; border-radius: 4px;
+  background: var(--chalk);
+}
+.phase-pip--done { background: var(--ok); }
+.phase-pip--now { background: var(--brand); }
+
+.phase-title { display: flex; align-items: baseline; gap: var(--space-2); }
+.phase-title__kicker {
+  font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.06em;
+  color: var(--cloud-dark); font-weight: 700;
+}
+
+/* ─────────────────────── age tiers ─────────────────────── */
+
+body[data-tier='ks1'] {
+  font-family: var(--font-young);
+  font-size: 1.125rem; line-height: 1.6;
+}
+body[data-tier='ks1'] .btn { min-height: 64px; font-size: 1.125rem; border-radius: 16px; }
+body[data-tier='ks1'] .card__accent { background: var(--berry); }
+body[data-tier='ks1'] .panel { background: #fff4ec; border-left-color: var(--brand); }
+body[data-tier='ks3'] .card__accent,
+body[data-tier='ks3'] .orb { --brand: var(--tier-ks3); }
+body[data-tier='gcse'] .card__accent { background: var(--tier-gcse); }
+
+/* ─────────────────────── login ─────────────────────── */
+
+.who { display: grid; gap: var(--space-3); grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+       max-width: 46rem; margin: var(--space-6) auto; }
+.who__btn {
+  border: 2px solid var(--chalk); border-radius: var(--radius); background: var(--white);
+  padding: var(--space-4) var(--space-2); cursor: pointer; text-align: center;
+  font: 700 1.25rem/1.2 var(--font-sans);
+}
+.who__btn:hover { border-color: var(--brand); }
+.who__dot { width: 56px; height: 56px; border-radius: 50%; margin: 0 auto var(--space-2); }
+
+.pinpad { max-width: 18rem; margin: var(--space-4) auto; }
+.pinpad__display { display: flex; gap: var(--space-1); justify-content: center; margin-bottom: var(--space-3); }
+.pinpad__dot { width: 18px; height: 18px; border-radius: 50%; border: 2px solid var(--ebon); }
+.pinpad__dot--on { background: var(--ebon); }
+.pinpad__keys { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--space-1); }
+.pinpad__keys .btn { min-height: 64px; font-size: 1.5rem; }
+
+/* ─────────────────────── misc ─────────────────────── */
+
+.notice {
+  font-size: 0.8125rem; color: var(--cloud-dark);
+  border-top: 1px solid var(--chalk); margin-top: var(--space-5);
+  padding-top: var(--space-2);
+}
+.error { color: var(--postbox); font-weight: 700; }
+.tag {
+  display: inline-block; font-size: 0.75rem; font-weight: 700; letter-spacing: 0.04em;
+  text-transform: uppercase; padding: 2px 8px; border-radius: 4px;
+  background: var(--lunar); color: var(--storm);
+}
+.tag--board { background: var(--tier-gcse); color: #fff; }
+
+table { border-collapse: collapse; width: 100%; }
+.table-wrap { overflow-x: auto; }        /* the body must never scroll sideways */
+th, td { text-align: left; padding: var(--space-1) var(--space-1-5); border-bottom: 1px solid var(--chalk); }
+th { font-size: 0.8125rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--cloud-dark); }
+
+img { max-width: 100%; height: auto; }
+
+.hidden { display: none !important; }

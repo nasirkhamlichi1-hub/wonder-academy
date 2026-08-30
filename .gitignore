@@ -1,0 +1,9 @@
+node_modules/
+api/node_modules/
+site/app.js
+site/app.js.map
+site/index.html
+site/styles.css
+.env
+*.log
+site/curriculum/

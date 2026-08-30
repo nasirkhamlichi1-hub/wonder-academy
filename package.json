@@ -1,0 +1,21 @@
+{
+  "name": "wonder-academy",
+  "version": "2.0.0",
+  "private": true,
+  "type": "module",
+  "description": "A homeschool learning app for three children, taught by a live voice teacher.",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "lint:sql": "node scripts/sqllint.mjs",
+    "dev": "npm run build && node scripts/devserver.mjs",
+    "test": "node --test test/ && node scripts/sqllint.mjs"
+  },
+  "dependencies": {
+    "@elevenlabs/client": "^1.23.0",
+    "ts-fsrs": "^5.4.1"
+  },
+  "devDependencies": {
+    "esbuild": "^0.25.0",
+    "playwright": "^1.62.1"
+  }
+}

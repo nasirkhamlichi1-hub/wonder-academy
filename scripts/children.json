@@ -1,0 +1,44 @@
+{
+  "parent_pin": "CHANGE_ME",
+  "children": [
+    {
+      "id": "sol",
+      "name": "Sol",
+      "year_group": 10,
+      "key_stage": "gcse",
+      "curriculum_id": "year10",
+      "colour": "#1b62c4",
+      "pin": "CHANGE_ME",
+      "sessions_per_day": 2,
+      "session_minutes": 50,
+      "new_items_per_day": 17,
+      "request_retention": 0.9
+    },
+    {
+      "id": "isaac",
+      "name": "Isaac",
+      "year_group": 7,
+      "key_stage": "ks3",
+      "curriculum_id": "year7",
+      "colour": "#6e22b4",
+      "pin": "CHANGE_ME",
+      "sessions_per_day": 2,
+      "session_minutes": 35,
+      "new_items_per_day": 12,
+      "request_retention": 0.85
+    },
+    {
+      "id": "sophia",
+      "name": "Sophia",
+      "year_group": 2,
+      "key_stage": "ks1",
+      "curriculum_id": "year2",
+      "colour": "#e8710a",
+      "pin": "CHANGE_ME",
+      "sessions_per_day": 1,
+      "session_minutes": null,
+      "new_items_per_day": 5,
+      "request_retention": 0.85
+    }
+  ]
+}
