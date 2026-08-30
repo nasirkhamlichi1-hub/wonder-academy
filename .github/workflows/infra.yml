@@ -1,0 +1,152 @@
+# Provisions every Azure resource and deploys in the same run. Idempotent, so
+# re-running after a failure is safe.
+name: Provision and deploy
+
+on:
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  RG: rg-wonder-academy
+  # One region for the Static Web App, its managed Functions and the database.
+  # Static content is served from a global CDN whatever you pick, so the region
+  # only decides where the API and the database live - and every answer a child
+  # gives is an API call that touches the database. They must sit together.
+  LOC: ${{ vars.AZURE_LOCATION || 'westeurope' }}
+  # Azure OpenAI model availability varies by region, so it gets its own.
+  AOAI_LOC: ${{ vars.AOAI_LOCATION || 'swedencentral' }}
+  SQL_DB: wonderdb
+  SWA_NAME: swa-wonder-academy
+
+jobs:
+  provision:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm }
+
+      - name: Sign in to Azure
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Derive globally-unique names
+        run: |
+          SUFFIX=$(echo -n "${{ secrets.AZURE_SUBSCRIPTION_ID }}" | sha256sum | cut -c1-8)
+          echo "SQL_SERVER=sql-wonder-$SUFFIX" >> $GITHUB_ENV
+          echo "AOAI_NAME=aoai-wonder-$SUFFIX" >> $GITHUB_ENV
+
+      - name: Register resource providers
+        run: |
+          for p in Microsoft.Sql Microsoft.Web Microsoft.CognitiveServices; do
+            az provider register --namespace $p --wait
+          done
+
+      - name: Resource group
+        run: az group create -n $RG -l $LOC -o none
+
+      - name: SQL server
+        run: |
+          az sql server create -g $RG -n $SQL_SERVER -l $LOC \
+            --admin-user wonderadmin \
+            --admin-password '${{ secrets.SQL_ADMIN_PASSWORD }}' \
+            --minimal-tls-version 1.2 -o none || echo 'server exists'
+          # Managed Functions have no VNet and no fixed egress IP, so allowing
+          # Azure services is the only route in. The password is what protects it.
+          az sql server firewall-rule create -g $RG -s $SQL_SERVER \
+            -n AllowAzureServices \
+            --start-ip-address 0.0.0.0 --end-ip-address 0.0.0.0 -o none || true
+
+      - name: SQL database - Basic, 5 DTU, always on
+        # Deliberately NOT serverless: auto-pause takes about a minute to resume,
+        # and this app is used in short daily bursts with twelve-hour gaps, so
+        # every session would open with a stall.
+        run: |
+          az sql db create -g $RG -s $SQL_SERVER -n $SQL_DB \
+            --service-objective Basic --backup-storage-redundancy Local -o none || echo 'db exists'
+
+      - name: Apply schema
+        env:
+          SQL_PASSWORD: ${{ secrets.SQL_ADMIN_PASSWORD }}
+        run: |
+          python3 -m pip install --quiet pymssql
+          python3 scripts/apply_schema.py
+
+      - name: Static Web App
+        run: az staticwebapp create -g $RG -n $SWA_NAME -l $LOC --sku Free -o none || echo 'swa exists'
+
+      - name: Azure OpenAI resource and grader deployment
+        run: |
+          az cognitiveservices account create -g $RG -n $AOAI_NAME -l $AOAI_LOC \
+            --kind OpenAI --sku S0 --custom-domain $AOAI_NAME --yes -o none || echo 'aoai exists'
+          az cognitiveservices account deployment create -g $RG -n $AOAI_NAME \
+            --deployment-name grader \
+            --model-name "${{ vars.GRADER_MODEL || 'gpt-4o-mini' }}" \
+            --model-version "${{ vars.GRADER_MODEL_VERSION || '2024-07-18' }}" \
+            --model-format OpenAI \
+            --sku-name GlobalStandard --sku-capacity 30 -o none || echo 'grader exists'
+
+      - name: Application settings - every secret stays server-side
+        run: |
+          AOAI_KEY=$(az cognitiveservices account keys list -g $RG -n $AOAI_NAME --query key1 -o tsv)
+          CONN="Server=tcp:${SQL_SERVER}.database.windows.net,1433;Database=${SQL_DB};User ID=wonderadmin;Password=${{ secrets.SQL_ADMIN_PASSWORD }};Encrypt=true;TrustServerCertificate=false;Connection Timeout=30;"
+          az staticwebapp appsettings set -n $SWA_NAME -g $RG --setting-names \
+            SQL_CONNECTION_STRING="$CONN" \
+            ELEVENLABS_API_KEY="${{ secrets.ELEVENLABS_API_KEY }}" \
+            ELEVENLABS_AGENT_ID="${{ secrets.ELEVENLABS_AGENT_ID }}" \
+            ELEVENLABS_WEBHOOK_SECRET="${{ secrets.ELEVENLABS_WEBHOOK_SECRET }}" \
+            PIN_PEPPER="${{ secrets.PIN_PEPPER }}" \
+            COACH_API_KEY="${{ secrets.COACH_API_KEY }}" \
+            ROLLUP_SECRET="${{ secrets.ROLLUP_SECRET }}" \
+            AOAI_ENDPOINT="https://${AOAI_NAME}.openai.azure.com/" \
+            AOAI_KEY="$AOAI_KEY" \
+            AOAI_DEPLOYMENT="grader" -o none
+
+      - name: Build the frontend
+        run: |
+          npm ci
+          npm run build
+
+      - name: Fetch the deployment token
+        run: |
+          TOKEN=$(az staticwebapp secrets list -g $RG -n $SWA_NAME --query properties.apiKey -o tsv)
+          echo "::add-mask::$TOKEN"
+          echo "SWA_TOKEN=$TOKEN" >> $GITHUB_ENV
+          HOST=$(az staticwebapp show -g $RG -n $SWA_NAME --query defaultHostname -o tsv)
+          echo "SWA_HOST=$HOST" >> $GITHUB_ENV
+
+      - name: Deploy site and API
+        uses: Azure/static-web-apps-deploy@v1
+        with:
+          azure_static_web_apps_api_token: ${{ env.SWA_TOKEN }}
+          action: upload
+          app_location: "site"
+          api_location: "api"
+          output_location: ""
+          skip_app_build: true
+
+      - name: Load the curriculum into the database
+        run: |
+          echo 'Waiting for the API to come up'
+          for i in $(seq 1 30); do
+            code=$(curl -s -o /dev/null -w '%{http_code}' "https://$SWA_HOST/api/health" || true)
+            if [ "$code" = "200" ]; then break; fi
+            sleep 10
+          done
+          curl -fsS -X POST "https://$SWA_HOST/api/admin/load-components" \
+            -H "Authorization: Bearer ${{ secrets.COACH_API_KEY }}" \
+            -H 'content-type: application/json' -d '{}' || echo 'component load will need a retry'
+
+      - name: Where it lives
+        run: |
+          echo "### The Wonder Academy is live" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "https://$SWA_HOST" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Set the repository variable SWA_HOSTNAME to $SWA_HOST so the nightly rollup can find it." >> $GITHUB_STEP_SUMMARY
