@@ -16,6 +16,14 @@ export async function loadCurriculum(env, curriculumId) {
 }
 
 /** Flatten the nested scheme of work into lookup maps plus an ordered lesson list. */
+
+// Exam administration is a fact the adult planning the year needs. It is not
+// something to teach a fourteen-year-old, and drilling it spends retrievals that
+// should have gone on reading. Recognised here, at the one place the scheme
+// becomes lessons, so it can never reach a child or the review queue.
+const EXAM_ADMIN = /\bAO[1-4]\b|assessment objective|% of the GCSE|\bmark schemes?\b|\bexaminer\b|^\s*(Component|Paper) \d (is|lasts|is worth|assesses|covers)|\bSPaG\b/i;
+const EXAM_LESSON = /assessment objective|shape of gcse|the two papers|^induction\b|how you are assessed|exam structure|^baseline assessment\b|^question \d\b|^mock\b/i;
+
 export function indexCurriculum(data) {
   const lessons = [];
   const lessonById = new Map();
@@ -36,6 +44,8 @@ export function indexCurriculum(data) {
     for (const term of subject.terms || []) {
       for (const week of term.weeks || []) {
         for (const lesson of week.lessons || []) {
+          if (EXAM_LESSON.test(lesson.title || '')) continue;
+          if (lesson.audience === 'teacher' || lesson.active === false) continue;
           const record = {
             ...lesson,
             subject: subject.id,
@@ -54,6 +64,8 @@ export function indexCurriculum(data) {
         }
 
         for (const kc of week.knowledgeComponents || []) {
+          if (EXAM_ADMIN.test(kc.statement || '')) continue;
+          if (kc.audience === 'teacher' || kc.active === false) continue;
           const lessonId = kc.lesson || (week.lessons?.[0]?.id ?? null);
           const record = {
             ...kc,
