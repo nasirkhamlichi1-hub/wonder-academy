@@ -63,11 +63,22 @@ conn = pymssql.connect(
     database=os.environ["SQL_DB"], tds_version="7.4", timeout=120)
 cur = conn.cursor()
 cur.execute("DELETE FROM component")
-cur.executemany(
-    "INSERT INTO component (id, curriculum_id, curriculum_version, subject, strand,"
-    " key_stage, nc_reference, item_type, statement, lesson_id, term_id, week,"
-    " prereq_ids, generator, rubric, target_latency_ms, created_at)"
-    " VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)", rows)
+
+# Multi-row INSERTs rather than executemany. executemany sends one round trip per
+# row, which against a 5 DTU database took over ten minutes for these 6,665 rows;
+# batching brings it under a minute. SQL Server caps a statement at 2,100
+# parameters, and 17 columns x 100 rows = 1,700.
+COLUMNS = ("id, curriculum_id, curriculum_version, subject, strand, key_stage,"
+           " nc_reference, item_type, statement, lesson_id, term_id, week,"
+           " prereq_ids, generator, rubric, target_latency_ms, created_at")
+BATCH = 100
+placeholder = "(" + ",".join(["%s"] * 17) + ")"
+
+for i in range(0, len(rows), BATCH):
+    chunk = rows[i:i + BATCH]
+    sql = ("INSERT INTO component (" + COLUMNS + ") VALUES "
+           + ",".join([placeholder] * len(chunk)))
+    cur.execute(sql, tuple(v for row in chunk for v in row))
 conn.commit()
 
 cur.execute("SELECT curriculum_id, COUNT(*) FROM component GROUP BY curriculum_id")
