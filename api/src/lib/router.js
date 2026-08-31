@@ -141,7 +141,7 @@ async function route(request, env, ctx, url, path) {
 
     await env.DB.prepare(
       `INSERT INTO learning_sessions
-        (id, child_id, block, subject, lesson_id, plan, started_at, phase, device)
+        (id, child_id, block, subject, lesson_id, plan_json, started_at, phase, device)
        VALUES (?,?,?,?,?,?,?,?,?)`
     ).bind(plan.id, auth.child.id, plan.block, plan.lesson.subject, plan.lesson.id,
       JSON.stringify(plan), now(), 'warmup',
