@@ -134,16 +134,19 @@ jobs:
             AOAI_DEPLOYMENT="grader" -o none
 
       - name: Load the curriculum into the database
+        # Straight into SQL rather than through the API: 6,665 components will
+        # not fit inside a managed Function's 45-second limit.
+        env:
+          SQL_PASSWORD: ${{ secrets.SQL_ADMIN_PASSWORD }}
+        run: python3 scripts/load_components.py
+
+      - name: Check the API is answering
         run: |
-          echo 'Waiting for the API to come up'
           for i in $(seq 1 30); do
             code=$(curl -s -o /dev/null -w '%{http_code}' "https://$SWA_HOST/api/health" || true)
-            if [ "$code" = "200" ]; then break; fi
+            if [ "$code" = "200" ]; then echo "API is up"; break; fi
             sleep 10
           done
-          curl -fsS -X POST "https://$SWA_HOST/api/admin/load-components" \
-            -H "Authorization: Bearer ${{ secrets.COACH_API_KEY }}" \
-            -H 'content-type: application/json' -d '{}' || echo 'component load will need a retry'
 
       - name: Where it lives
         run: |
