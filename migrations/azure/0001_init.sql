@@ -97,7 +97,7 @@ CREATE TABLE dbo.learning_sessions (
   block      INT           NOT NULL DEFAULT 1,
   subject    NVARCHAR(64)  NULL,
   lesson_id  NVARCHAR(128) NULL,
-  plan       NVARCHAR(MAX) NULL,
+  plan_json  NVARCHAR(MAX) NULL,
   started_at BIGINT        NOT NULL,
   ended_at   BIGINT        NULL,
   active_ms  BIGINT        NOT NULL DEFAULT 0,
