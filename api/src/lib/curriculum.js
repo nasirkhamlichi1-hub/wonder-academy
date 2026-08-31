@@ -39,13 +39,28 @@ export function indexCurriculum(data) {
       board: subject.board || null,
       specCode: subject.specCode || null,
       tier: subject.tier || null,
+      // How much of the week this subject should get relative to its siblings.
+      // The scheduler ranks by progress-through-the-subject, which by itself
+      // makes every subject finish the year at the same percentage — fine when
+      // they matter equally, wrong for a six-year-old whose phonics and number
+      // work should run ahead of her topic work.
+      weight: subject.weight || 1,
     });
 
     for (const term of subject.terms || []) {
       for (const week of term.weeks || []) {
         for (const lesson of week.lessons || []) {
+          // Exam furniture — what AO3 rewards, how long Paper 2 is — is a fact
+          // the adult planning the year needs. It is not something to teach a
+          // fourteen-year-old, and drilling it spends reps that should have
+          // gone on reading. Marked audience:teacher in the scheme; never
+          // reaches a lesson or the review queue.
           if (EXAM_LESSON.test(lesson.title || '')) continue;
-          if (lesson.audience === 'teacher' || lesson.active === false) continue;
+          if (lesson.audience === 'teacher') continue;
+          // A centre-chosen option the school does not teach. Written and kept,
+          // but never queued — a term spent on glaciated uplands he will not be
+          // examined on is a term he does not get back.
+          if (lesson.active === false) continue;
           const record = {
             ...lesson,
             subject: subject.id,
@@ -58,6 +73,13 @@ export function indexCurriculum(data) {
             phonicsPhase: week.phonicsPhase || null,
             gpcs: week.gpcs || null,
             commonExceptionWords: week.commonExceptionWords || null,
+            // Some weeks are fixed to a date rather than to a position in the
+            // sequence — the phonics screening check is the week beginning
+            // 14 June 2027 whether or not she has reached week 33 of English.
+            // Without this the scheduler serves lessons purely by progress, and
+            // a child who covers 65% of a scheme in the year never reaches
+            // anything anchored near its end.
+            anchor: lesson.anchor || week.anchor || null,
           };
           lessons.push(record);
           lessonById.set(lesson.id, record);
@@ -126,18 +148,49 @@ export function targetLatency(itemType, keyStage) {
 
 /** Where the child is up to: the next unstarted lesson per subject. */
 export async function nextLessons(env, child, curriculum) {
-  const done = await env.DB.prepare(
+  const attempts = await env.DB.prepare(
     `SELECT lesson_id, MAX(status) AS status FROM lesson_attempts
      WHERE child_id = ? GROUP BY lesson_id`
   ).bind(child.id).all();
 
   const completed = new Set(
-    (done.results || []).filter((r) => r.status === 'completed').map((r) => r.lesson_id));
+    (attempts.results || []).filter((r) => r.status === 'completed').map((r) => r.lesson_id));
 
+  // Per subject: the next lesson, and how far through that subject the child is.
+  // The progress figure is what lets the scheduler pick the subject that is
+  // furthest behind rather than the first one in the file — see the note on
+  // subject rotation in session.js. Returned separately rather than pinned onto
+  // the lesson, because the curriculum index is cached and shared between
+  // children; writing a child's progress onto it would leak across accounts.
   const bySubject = new Map();
+  const total = new Map();
+  const done = new Map();
   for (const lesson of curriculum.lessons) {
-    if (completed.has(lesson.id)) continue;
+    total.set(lesson.subject, (total.get(lesson.subject) || 0) + 1);
+    if (completed.has(lesson.id)) {
+      done.set(lesson.subject, (done.get(lesson.subject) || 0) + 1);
+      continue;
+    }
     if (!bySubject.has(lesson.subject)) bySubject.set(lesson.subject, lesson);
   }
-  return bySubject;
+
+  // Lessons pinned to a date that has arrived, oldest anchor first. They are
+  // served ahead of the ordinary sequence, and only within a fortnight of their
+  // date, so a missed anchor does not haunt the rest of the year.
+  const WINDOW = 14 * 86400000;
+  const anchored = curriculum.lessons
+    .filter((l) => l.anchor && !completed.has(l.id))
+    .map((l) => ({ lesson: l, at: Date.parse(l.anchor) }))
+    .filter((a) => Number.isFinite(a.at))
+    .sort((a, b) => a.at - b.at);
+
+  const progress = new Map();
+  for (const subject of bySubject.keys()) {
+    progress.set(subject, {
+      done: done.get(subject) || 0,
+      total: total.get(subject) || 1,
+      ratio: (done.get(subject) || 0) / (total.get(subject) || 1),
+    });
+  }
+  return { bySubject, progress, anchored, anchorWindow: WINDOW };
 }

@@ -102,14 +102,29 @@ export function makeRateLimiter(db) {
       ).bind(key, Date.now()).first();
       return row ? String(row.counter) : null;
     },
+    /**
+     * The window is fixed from the first attempt, not slid forward on every
+     * one. Refreshing expires_at on each increment sounds harmless and is not:
+     * a locked-out person naturally keeps trying, each try pushes the expiry
+     * another fifteen minutes into the future, and they can never get back in
+     * however long they wait. That is what happened to the parent account —
+     * five failed attempts against a PIN that a rotated pepper had already
+     * invalidated, and then a lockout that could not time out.
+     *
+     * A row whose window has passed is treated as absent by get(), so the
+     * UPDATE below restarts the count and the clock together.
+     */
     async put(key, value, { expirationTtl = 900 } = {}) {
-      const expires = Date.now() + expirationTtl * 1000;
+      const nowMs = Date.now();
+      const expires = nowMs + expirationTtl * 1000;
       await db.prepare(
         `MERGE rate_limit AS target
          USING (SELECT ? AS rl_key) AS source ON target.rl_key = source.rl_key
-         WHEN MATCHED THEN UPDATE SET counter = ?, expires_at = ?
+         WHEN MATCHED THEN UPDATE SET
+           counter = CASE WHEN target.expires_at > ? THEN ? ELSE 1 END,
+           expires_at = CASE WHEN target.expires_at > ? THEN target.expires_at ELSE ? END
          WHEN NOT MATCHED THEN INSERT (rl_key, counter, expires_at) VALUES (?, ?, ?);`
-      ).bind(key, Number(value), expires, key, Number(value), expires).run();
+      ).bind(key, nowMs, Number(value), nowMs, expires, key, Number(value), expires).run();
     },
     async delete(key) {
       await db.prepare(`DELETE FROM rate_limit WHERE rl_key = ?`).bind(key).run();

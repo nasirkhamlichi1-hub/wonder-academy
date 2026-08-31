@@ -59,7 +59,7 @@ const TEMPLATES = {
  * schemes with the review queue staying inside its budget and effectively no
  * overflow. Year 1 deliberately sits lower — see the note in buildSession.
  */
-function reviewRatio(keyStage, consolidationDay) {
+export function reviewRatio(keyStage, consolidationDay) {
   if (consolidationDay) return 0.7;
   return keyStage === 'gcse' ? 0.48 : keyStage === 'ks3' ? 0.45 : 0.32;
 }
@@ -78,17 +78,49 @@ export async function buildSession(env, child, { block = 1, subject = null, at =
   const consolidation = isConsolidationDay(at);
 
   // ── pick the lesson ─────────────────────────────────────────────
-  const upcoming = await nextLessons(env, child, curriculum);
+  const { bySubject: upcoming, progress, anchored, anchorWindow } =
+    await nextLessons(env, child, curriculum);
   let lesson = subject ? upcoming.get(subject) : null;
+
+  // What was taught in the last few hours, so the second block of a day is a
+  // different subject from the first.
+  const recent = await env.DB.prepare(
+    `SELECT TOP (3) subject FROM learning_sessions
+     WHERE child_id = ? AND started_at > ? ORDER BY started_at DESC`
+  ).bind(child.id, at - DAY_MS / 2).all();
+  const seen = new Set((recent.results || []).map((r) => r.subject));
+
+  // A date-pinned week that has come due outranks the ordinary sequence.
   if (!lesson) {
-    // Rotate subjects across blocks so the second block of the day is a
-    // different subject from the first.
-    const recent = await env.DB.prepare(
-      `SELECT TOP (3) subject FROM learning_sessions
-       WHERE child_id = ? AND started_at > ? ORDER BY started_at DESC`
-    ).bind(child.id, at - DAY_MS).all();
-    const seen = new Set((recent.results || []).map((r) => r.subject));
-    const candidates = [...upcoming.values()];
+    const due = anchored.find(
+      (a) => a.at <= at && at < a.at + anchorWindow && !seen.has(a.lesson.subject));
+    if (due) lesson = due.lesson;
+  }
+
+  if (!lesson) {
+    // Pick the subject that is furthest behind, skipping whatever was taught in
+    // the last few hours so the second block of a day differs from the first.
+    //
+    // This used to take the first candidate not taught in the last 24 hours,
+    // which sounds like rotation and is not. `seen` only ever held the sessions
+    // inside a 24-hour window, so at the first block of a new day it was empty
+    // and the pick fell to candidates[0] — the first subject in the curriculum
+    // file. The second block then took candidates[1]. Every day. Simulated over
+    // forty days, Isaac was taught maths and English eighty times out of eighty
+    // and never once met science, geography, history, computing, Arabic, ICT,
+    // MSCS or his modern language. Nothing looked wrong: the lessons it did
+    // serve were correct, so the failure was invisible from inside a session.
+    //
+    // Ranking by least-progressed also fixes a fairness problem that plain
+    // round-robin has even when it works: equal airtime starves the biggest
+    // subjects, so science (410 components) would finish the year further
+    // behind than computing (340) purely for being larger.
+    // Rank by how far through the subject the child is, divided by the
+    // subject's weight — so a subject with weight 2 is chosen until it sits
+    // roughly twice as far through as its weight-1 siblings.
+    const weightOf = new Map(curriculum.subjects.map((s) => [s.id, s.weight || 1]));
+    const rank = (l) => (progress.get(l.subject)?.ratio ?? 0) / (weightOf.get(l.subject) || 1);
+    const candidates = [...upcoming.values()].sort((a, b) => rank(a) - rank(b));
     lesson = candidates.find((l) => !seen.has(l.subject)) || candidates[0];
   }
   if (!lesson) return { error: 'curriculum_complete' };
