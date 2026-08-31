@@ -68,16 +68,7 @@ async function route(request, env, ctx, url, path) {
 
   // ─────────────── public ───────────────
   if (path === '/api/health') {
-    // headerNames and configured are a temporary diagnostic: Static Web Apps is
-    // known to interfere with the Authorization header on managed Functions.
-    return json({
-      ok: true, time: now(), version: env.APP_VERSION || 'dev',
-      headerNames: [...request.headers.keys()],
-      configured: {
-        coach: !!env.COACH_API_KEY, pepper: !!env.PIN_PEPPER,
-        sql: !!env.SQL_CONNECTION_STRING, eleven: !!env.ELEVENLABS_AGENT_ID,
-      },
-    });
+    return json({ ok: true, time: now(), version: env.APP_VERSION || 'dev' });
   }
 
   if (path === '/api/children' && method === 'GET') {
