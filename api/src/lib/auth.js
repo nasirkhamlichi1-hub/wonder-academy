@@ -7,6 +7,18 @@
 
 import { json, err, id, now, sha256Hex, hashPin, randomHex, safeEqual } from './util.js';
 
+/**
+ * Azure Static Web Apps overwrites the Authorization header on its managed
+ * Functions with one of its own, so this app's token travels in x-wa-auth.
+ * Authorization is still read as a fallback for local development.
+ */
+function bearer(request) {
+  const raw = request.headers.get('x-wa-auth')
+    || request.headers.get('authorization') || '';
+  const value = raw.startsWith('Bearer ') ? raw.slice(7) : raw;
+  return value || null;
+}
+
 const SESSION_MS = 14 * 24 * 60 * 60 * 1000;   // 14 days — children shouldn't re-login daily
 const MAX_ATTEMPTS = 5;
 const WINDOW_S = 15 * 60;
@@ -95,8 +107,7 @@ export function publicChild(row) {
 
 /** Resolve the bearer token on a request. Returns null when unauthenticated. */
 export async function authenticate(request, env) {
-  const header = request.headers.get('authorization') || '';
-  const token = header.startsWith('Bearer ') ? header.slice(7) : null;
+  const token = bearer(request);
   if (!token) return null;
   const hash = await sha256Hex(token);
 
@@ -116,8 +127,7 @@ export async function authenticate(request, env) {
 
 /** Coach access — a long-lived API key rather than a login. */
 export async function authenticateCoach(request, env) {
-  const header = request.headers.get('authorization') || '';
-  const key = header.startsWith('Bearer ') ? header.slice(7) : null;
+  const key = bearer(request);
   if (!key) return false;
   if (env.COACH_API_KEY && safeEqual(key, env.COACH_API_KEY)) return true;
 
@@ -131,8 +141,7 @@ export async function authenticateCoach(request, env) {
 }
 
 export async function logout(request, env) {
-  const header = request.headers.get('authorization') || '';
-  const token = header.startsWith('Bearer ') ? header.slice(7) : null;
+  const token = bearer(request);
   if (token) {
     await env.DB.prepare(`UPDATE auth_sessions SET revoked = 1 WHERE token_hash = ?`)
       .bind(await sha256Hex(token)).run();
