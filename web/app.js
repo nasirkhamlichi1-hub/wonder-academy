@@ -23,7 +23,7 @@ async function api(path, options = {}) {
     ...options,
     headers: {
       'content-type': 'application/json',
-      ...(store.token ? { authorization: `Bearer ${store.token}` } : {}),
+      ...(store.token ? { 'x-wa-auth': `Bearer ${store.token}` } : {}),
       ...(options.headers || {}),
     },
   });
