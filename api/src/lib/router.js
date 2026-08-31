@@ -543,7 +543,7 @@ async function coachRoutes(request, env, url, path) {
 async function loadComponents(request, env) {
   const { curriculum_id } = await request.json().catch(() => ({}));
   const ids = curriculum_id ? [curriculum_id] : ['year2', 'year7', 'year10'];
-  let total = 0;
+  let total = 0, pruned = 0;
 
   for (const cid of ids) {
     const curriculum = await loadCurriculum(env, cid);
@@ -572,9 +572,27 @@ async function loadComponents(request, env) {
       if (batch.length >= 100) { await env.DB.batch(batch.splice(0)); }
     }
     if (batch.length) await env.DB.batch(batch);
+
+    // Drop what the scheme no longer contains. This only ever MERGEd, so the
+    // mirror was append-only: a component removed from a curriculum, or newly
+    // filtered as exam administration, stayed in the table and kept being
+    // counted and scheduled. The JSON was clean and the database was not.
+    const keep = new Set(curriculum.componentById.keys());
+    const existing = await env.DB.prepare(
+      `SELECT id FROM component WHERE curriculum_id = ?`).bind(cid).all();
+    const stale = (existing.results || []).map((r) => r.id).filter((x) => !keep.has(x));
+    for (let i = 0; i < stale.length; i += 100) {
+      const chunk = stale.slice(i, i + 100);
+      const marks = chunk.map(() => '?').join(',');
+      await env.DB.prepare(
+        `DELETE FROM srs_card WHERE component_id IN (${marks})`).bind(...chunk).run();
+      await env.DB.prepare(
+        `DELETE FROM component WHERE id IN (${marks})`).bind(...chunk).run();
+    }
+    pruned += stale.length;
     total += curriculum.componentById.size;
   }
-  return json({ ok: true, components: total });
+  return json({ ok: true, components: total, pruned });
 }
 
 /** "GCSE Combined Science: Trilogy" is a mouthful on a tile. */
