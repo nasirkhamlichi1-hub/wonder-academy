@@ -5,20 +5,26 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>The Wonder Academy</title>
 <meta name="description" content="A learning day, taught out loud.">
+<meta name="theme-color" content="#14142e">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="/styles.css">
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🛰️</text></svg>">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%2314142e'/><path d='M16 5.5l2.6 8.9 8.9 2.6-8.9 2.6L16 28.5l-2.6-8.9L4.5 17l8.9-2.6z' fill='%23f5a524'/></svg>">
 </head>
 <body>
 
 <header class="topbar">
-  <div class="topbar__brand">The Wonder <span>Academy</span></div>
+  <div class="topbar__brand">
+    <svg viewBox="0 0 24 24" class="icon" aria-hidden="true"><path d="M12 2.6 14 9.4l6.8 2-6.8 2-2 6.8-2-6.8-6.8-2 6.8-2z" fill="currentColor"/></svg>
+    The Wonder <span>Academy</span>
+  </div>
   <div class="topbar__spacer"></div>
-  <div id="whoami" class="tag hidden"></div>
+  <div id="whoami" class="whochip hidden"></div>
   <button id="signout" class="btn btn--ghost hidden" type="button">Sign out</button>
 </header>
 
-<main id="app" class="shell" aria-live="polite">
-  <p style="margin-top:3rem">Loading…</p>
+<main id="app" aria-live="polite">
+  <div class="gate"><div class="gate__in"><p class="prose">Loading…</p></div></div>
 </main>
 
 <footer class="shell">

@@ -130,6 +130,66 @@ async function route(request, env, ctx, url, path) {
       : { type: 'parent' });
   }
 
+  // ---- child: what today looks like ----
+  //
+  // The home screen needs real content or it is two grey boxes. This is the
+  // cheapest honest answer to "what am I actually doing today": the subjects
+  // this child studies, how much of each is genuinely held, and which of the
+  // day's sittings are already done.
+  if (path === '/api/child/today' && method === 'GET') {
+    if (auth.type !== 'child') return err('child session required', 403);
+    const child = auth.child;
+    const curriculum = await loadCurriculum(env, child.curriculum_id);
+
+    const counts = await env.DB.prepare(
+      `SELECT c.subject AS subject,
+              COUNT(*) AS total,
+              SUM(CASE WHEN s.mastered = 1 THEN 1 ELSE 0 END) AS held,
+              SUM(CASE WHEN s.due IS NOT NULL AND s.due <= ? THEN 1 ELSE 0 END) AS due,
+              SUM(CASE WHEN s.reps > 0 THEN 1 ELSE 0 END) AS met
+         FROM component c
+         LEFT JOIN srs_card s ON s.component_id = c.id AND s.child_id = ?
+        WHERE c.curriculum_id = ?
+        GROUP BY c.subject`
+    ).bind(now(), child.id, child.curriculum_id).all();
+
+    const by = new Map((counts.results || []).map((r) => [r.subject, r]));
+    const subjects = (curriculum.subjects || []).map((s) => {
+      const r = by.get(s.id) || {};
+      const total = Number(r.total) || 0;
+      return {
+        id: s.id,
+        name: s.name,
+        short: shortSubject(s.name),
+        strand: s.strand,
+        board: s.board,
+        total,
+        met: Number(r.met) || 0,
+        held: Number(r.held) || 0,
+        due: Number(r.due) || 0,
+        progress: total ? (Number(r.held) || 0) / total : 0,
+      };
+    });
+
+    const doneToday = await env.DB.prepare(
+      `SELECT block, completed FROM learning_sessions
+        WHERE child_id = ? AND started_at >= ?`
+    ).bind(child.id, Date.parse(`${dayKey()}T00:00:00Z`)).all();
+
+    return json({
+      child: publicChild(child),
+      subjects,
+      blocks: [1, 2].map((b) => {
+        const rows = (doneToday.results || []).filter((r) => Number(r.block) === b);
+        return { block: b, started: rows.length > 0, completed: rows.some((r) => r.completed) };
+      }),
+      wonders: (await env.DB.prepare(
+        `SELECT TOP (3) payload FROM events
+          WHERE child_id = ? AND type = 'wonder' ORDER BY created_at DESC`
+      ).bind(child.id).all()).results?.map((r) => parseJson(r.payload)?.question).filter(Boolean) || [],
+    });
+  }
+
   // ---- child: running a session ----
   if (path === '/api/session/start' && method === 'POST') {
     if (auth.type !== 'child') return err('child session required', 403);
@@ -515,4 +575,14 @@ async function loadComponents(request, env) {
     total += curriculum.componentById.size;
   }
   return json({ ok: true, components: total });
+}
+
+/** "GCSE Combined Science: Trilogy" is a mouthful on a tile. */
+function shortSubject(name) {
+  return String(name || '')
+    .replace(/^GCSE\s+/i, '')
+    .replace(/^KS\d\s+/i, '')
+    .replace(/:\s*Trilogy$/i, '')
+    .replace(/^Mathematics$/i, 'Maths')
+    .trim();
 }
