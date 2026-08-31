@@ -92,22 +92,6 @@ jobs:
             --model-format OpenAI \
             --sku-name GlobalStandard --sku-capacity 30 -o none || echo 'grader exists'
 
-      - name: Application settings - every secret stays server-side
-        run: |
-          AOAI_KEY=$(az cognitiveservices account keys list -g $RG -n $AOAI_NAME --query key1 -o tsv)
-          CONN="Server=tcp:${SQL_SERVER}.database.windows.net,1433;Database=${SQL_DB};User ID=wonderadmin;Password=${{ secrets.SQL_ADMIN_PASSWORD }};Encrypt=true;TrustServerCertificate=false;Connection Timeout=30;"
-          az staticwebapp appsettings set -n $SWA_NAME -g $RG --setting-names \
-            SQL_CONNECTION_STRING="$CONN" \
-            ELEVENLABS_API_KEY="${{ secrets.ELEVENLABS_API_KEY }}" \
-            ELEVENLABS_AGENT_ID="${{ secrets.ELEVENLABS_AGENT_ID }}" \
-            ELEVENLABS_WEBHOOK_SECRET="${{ secrets.ELEVENLABS_WEBHOOK_SECRET }}" \
-            PIN_PEPPER="${{ secrets.PIN_PEPPER }}" \
-            COACH_API_KEY="${{ secrets.COACH_API_KEY }}" \
-            ROLLUP_SECRET="${{ secrets.ROLLUP_SECRET }}" \
-            AOAI_ENDPOINT="https://${AOAI_NAME}.openai.azure.com/" \
-            AOAI_KEY="$AOAI_KEY" \
-            AOAI_DEPLOYMENT="grader" -o none
-
       - name: Build the frontend
         run: |
           npm ci
@@ -130,6 +114,24 @@ jobs:
           api_location: "api"
           output_location: ""
           skip_app_build: true
+
+      # After the deploy on purpose: the deploy provisions the managed Functions
+      # runtime, so settings written before it never reach the API.
+      - name: Application settings - every secret stays server-side
+        run: |
+          AOAI_KEY=$(az cognitiveservices account keys list -g $RG -n $AOAI_NAME --query key1 -o tsv)
+          CONN="Server=tcp:${SQL_SERVER}.database.windows.net,1433;Database=${SQL_DB};User ID=wonderadmin;Password=${{ secrets.SQL_ADMIN_PASSWORD }};Encrypt=true;TrustServerCertificate=false;Connection Timeout=30;"
+          az staticwebapp appsettings set -n $SWA_NAME -g $RG --setting-names \
+            SQL_CONNECTION_STRING="$CONN" \
+            ELEVENLABS_API_KEY="${{ secrets.ELEVENLABS_API_KEY }}" \
+            ELEVENLABS_AGENT_ID="${{ secrets.ELEVENLABS_AGENT_ID }}" \
+            ELEVENLABS_WEBHOOK_SECRET="${{ secrets.ELEVENLABS_WEBHOOK_SECRET }}" \
+            PIN_PEPPER="${{ secrets.PIN_PEPPER }}" \
+            COACH_API_KEY="${{ secrets.COACH_API_KEY }}" \
+            ROLLUP_SECRET="${{ secrets.ROLLUP_SECRET }}" \
+            AOAI_ENDPOINT="https://${AOAI_NAME}.openai.azure.com/" \
+            AOAI_KEY="$AOAI_KEY" \
+            AOAI_DEPLOYMENT="grader" -o none
 
       - name: Load the curriculum into the database
         run: |
